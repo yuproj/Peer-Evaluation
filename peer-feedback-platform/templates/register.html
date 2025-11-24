@@ -1,0 +1,124 @@
+<!-- templates/register.html -->
+{% extends "base.html" %}
+
+{% block title %}Register - Peer Feedback Platform{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-box">
+        <h1>Teacher Registration</h1>
+        
+        <!-- Step 1: Request Verification Code -->
+        <form id="emailForm" style="display: block;">
+            <div class="form-group">
+                <label for="email">Monmouth Email (@monmouth.edu)</label>
+                <input type="email" id="email" name="email" placeholder="yourname@monmouth.edu" required>
+                <small style="color: var(--gray-600); font-size: 0.85rem;">Only @monmouth.edu emails are allowed</small>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Send Verification Code</button>
+        </form>
+        
+        <!-- Step 2: Enter Code and Complete Registration -->
+        <form id="registerForm" style="display: none;">
+            <div class="alert alert-info" style="margin-bottom: 1.5rem;">
+                A verification code has been sent to your email. Please check your inbox (and spam folder).
+            </div>
+            <div class="form-group">
+                <label for="verificationCode">Verification Code</label>
+                <input type="text" id="verificationCode" name="verificationCode" maxlength="6" placeholder="Enter 6-digit code" required>
+            </div>
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" minlength="8" required>
+                <small style="color: var(--gray-600); font-size: 0.85rem;">Minimum 8 characters</small>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Complete Registration</button>
+            <button type="button" class="btn btn-secondary btn-block" onclick="resetForm()">Change Email</button>
+        </form>
+        
+        <p class="auth-link">Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
+    </div>
+</div>
+
+<script>
+let userEmail = '';
+
+// Step 1: Request verification code
+document.getElementById('emailForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    userEmail = document.getElementById('email').value.trim().toLowerCase();
+    
+    if (!userEmail.endsWith('@monmouth.edu')) {
+        showToast('Please use a @monmouth.edu email address', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'request_code', email: userEmail })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('Verification code sent! Check your email.', 'success');
+            document.getElementById('emailForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'block';
+        } else {
+            showToast(data.error || 'Failed to send verification code', 'error');
+        }
+    } catch (error) {
+        showToast('An error occurred', 'error');
+    }
+});
+
+// Step 2: Complete registration
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = {
+        action: 'verify_and_register',
+        email: userEmail,
+        code: document.getElementById('verificationCode').value,
+        name: document.getElementById('name').value,
+        password: document.getElementById('password').value
+    };
+    
+    try {
+        const response = await fetch('/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('Registration successful! Please login.', 'success');
+            setTimeout(() => window.location.href = data.redirect, 1500);
+        } else {
+            showToast(data.error || 'Registration failed', 'error');
+        }
+    } catch (error) {
+        showToast('An error occurred', 'error');
+    }
+});
+
+function resetForm() {
+    document.getElementById('emailForm').style.display = 'block';
+    document.getElementById('registerForm').style.display = 'none';
+    document.getElementById('email').value = '';
+    document.getElementById('verificationCode').value = '';
+    document.getElementById('name').value = '';
+    document.getElementById('password').value = '';
+    userEmail = '';
+}
+</script>
+{% endblock %}

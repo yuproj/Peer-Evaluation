@@ -1,0 +1,280 @@
+<!-- templates/login.html -->
+{% extends "base.html" %}
+
+{% block title %}Login - Peer Feedback Platform{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-box">
+        <h1>Login</h1>
+        
+        <!-- Login Type Tabs -->
+        <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; flex-wrap: wrap;">
+            <button type="button" class="login-tab active" onclick="switchTab('teacher')">Teacher Login</button>
+            <button type="button" class="login-tab" onclick="switchTab('student')">Student Login</button>
+            <button type="button" class="login-tab" onclick="switchTab('guest')">Guest Login</button>
+        </div>
+        
+        <!-- Teacher Login Form -->
+        <form id="loginForm" class="login-tab-content">
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Login</button>
+        </form>
+        
+        <!-- Student Login Form -->
+        <form id="studentLoginForm" class="login-tab-content" style="display: none;">
+            <div class="form-group">
+                <label for="studentName">Full Name</label>
+                <input type="text" id="studentName" name="studentName" placeholder="Enter your full name" required>
+            </div>
+            <div class="form-group">
+                <label for="passcode">Passcode</label>
+                <input type="text" id="passcode" name="passcode" placeholder="e.g., S123456 or 000000" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Login</button>
+        </form>
+
+        <!-- Guest Login Form -->
+        <form id="guestLoginForm" class="login-tab-content" style="display: none;">
+            <div class="form-group">
+                <label for="guestName">Full Name</label>
+                <input type="text" id="guestName" name="guestName" placeholder="Enter your full name" required>
+            </div>
+            <div class="form-group">
+                <label for="guestPasscode">Passcode</label>
+                <input type="text" id="guestPasscode" name="guestPasscode" placeholder="Enter your passcode" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Login</button>
+        </form>
+
+        <!-- Class Selection (for multi-class students) -->
+        <div id="classSelection" style="display: none;">
+            <h2>Select Class</h2>
+            <p>You are enrolled in multiple classes. Please select which class to enter:</p>
+            <div id="classList"></div>
+        </div>
+        
+        <p class="auth-link">Don't have an account? <a href="{{ url_for('register') }}">Register here (Teacher only)</a></p>
+    </div>
+</div>
+
+<style>
+.login-tab {
+    background: none;
+    border: none;
+    padding: 10px 15px;
+    cursor: pointer;
+    font-weight: bold;
+    color: #666;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.login-tab.active {
+    color: #007bff;
+    border-bottom-color: #007bff;
+}
+
+.login-tab:hover {
+    color: #007bff;
+}
+
+#classSelection {
+    margin-top: 20px;
+}
+
+#classList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.class-option {
+    padding: 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.class-option:hover {
+    border-color: #007bff;
+    background: #f8f9fa;
+}
+</style>
+
+<script>
+function switchTab(type) {
+    // Hide all forms
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('studentLoginForm').style.display = 'none';
+    document.getElementById('guestLoginForm').style.display = 'none';
+    document.getElementById('classSelection').style.display = 'none';
+    
+    // Remove active class from all tabs
+    document.querySelectorAll('.login-tab').forEach(tab => tab.classList.remove('active'));
+    
+    // Show selected form and activate tab
+    if (type === 'teacher') {
+        document.getElementById('loginForm').style.display = 'block';
+    } else if (type === 'student') {
+        document.getElementById('studentLoginForm').style.display = 'block';
+    } else if (type === 'guest') {
+        document.getElementById('guestLoginForm').style.display = 'block';
+    }
+    
+    event.target.classList.add('active');
+}
+
+function showClassSelection(classes) {
+    // Hide all forms
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('studentLoginForm').style.display = 'none';
+    document.getElementById('guestLoginForm').style.display = 'none';
+    
+    // Show class selection
+    const classSelection = document.getElementById('classSelection');
+    const classList = document.getElementById('classList');
+    
+    classList.innerHTML = classes.map(cls => `
+        <div class="class-option" onclick="selectClass(${cls.student_id}, ${cls.class_id}, ${cls.team_id})">
+            <strong>${cls.class_name}</strong>
+        </div>
+    `).join('');
+    
+    classSelection.style.display = 'block';
+}
+
+async function selectClass(studentId, classId, teamId) {
+    try {
+        const response = await fetch('/select-class', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                student_id: studentId,
+                class_id: classId,
+                team_id: teamId
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            window.location.href = data.redirect;
+        } else {
+            showToast(data.error || 'Failed to select class', 'error');
+        }
+    } catch (error) {
+        showToast('An error occurred', 'error');
+    }
+}
+
+// Teacher login
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = {
+        email: document.getElementById('email').value,
+        password: document.getElementById('password').value
+    };
+    
+    try {
+        const response = await fetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            window.location.href = data.redirect;
+        } else {
+            showToast(data.error || 'Login failed', 'error');
+        }
+    } catch (error) {
+        showToast('An error occurred', 'error');
+    }
+});
+
+// Student login with name and passcode
+document.getElementById('studentLoginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = {
+        student_name: document.getElementById('studentName').value,
+        passcode: document.getElementById('passcode').value
+    };
+    
+    try {
+        const response = await fetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            if (data.multiple_classes) {
+                showClassSelection(data.classes);
+            } else {
+                window.location.href = data.redirect;
+            }
+        } else {
+            showToast(data.error || 'Login failed', 'error');
+        }
+    } catch (error) {
+        showToast('An error occurred', 'error');
+    }
+});
+
+// Guest login
+document.getElementById('guestLoginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = {
+        guest_login: true,
+        name: document.getElementById('guestName').value,
+        passcode: document.getElementById('guestPasscode').value
+    };
+    
+    try {
+        const response = await fetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            if (data.multiple_classes) {
+                showClassSelection(data.classes);
+            } else {
+                window.location.href = data.redirect;
+            }
+        } else {
+            showToast(data.error || 'Login failed', 'error');
+        }
+    } catch (error) {
+        showToast('An error occurred', 'error');
+    }
+});
+</script>
+{% endblock %}
+
+
+

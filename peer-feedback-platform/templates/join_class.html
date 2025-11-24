@@ -1,0 +1,163 @@
+<!-- templates/join_class.html -->
+{% extends "base.html" %}
+
+{% block title %}Join Class{% endblock %}
+
+{% block content %}
+<div class="join-container">
+    <div class="join-box">
+        <h1>Join Class</h1>
+        <p>Please enter your information to join the class.</p>
+        
+        <!-- Join Type Tabs -->
+        <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; flex-wrap: wrap;">
+            <button type="button" class="join-tab active" onclick="switchJoinTab('student')">Student Join</button>
+            <button type="button" class="join-tab" onclick="switchJoinTab('guest')">Guest Join</button>
+        </div>
+        
+        <!-- Student Join Form -->
+        <form id="studentJoinForm">
+            <div class="form-group">
+                <label for="studentName">Full Name</label>
+                <input type="text" id="studentName" name="studentName" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="studentId">Student ID (SID)</label>
+                <input type="text" id="studentId" name="studentId" placeholder="e.g., S123456" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="teamSelect">Select Team</label>
+                <select id="teamSelect" name="teamSelect" required>
+                    <option value="">-- Select a Team --</option>
+                    {% for team in teams %}
+                    {% if team.name != 'Guests' %}
+                    <option value="{{ team.id }}">{{ team.name }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-block">Join Class</button>
+        </form>
+        
+        <!-- Guest Join Form -->
+        <form id="guestJoinForm" style="display: none;">
+            <div class="form-group">
+                <label for="guestName">Full Name</label>
+                <input type="text" id="guestName" name="guestName" required>
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-block">Join as Guest</button>
+        </form>
+    </div>
+</div>
+
+<style>
+.join-tab {
+    background: none;
+    border: none;
+    padding: 10px 15px;
+    cursor: pointer;
+    font-weight: bold;
+    color: #666;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.join-tab.active {
+    color: #007bff;
+    border-bottom-color: #007bff;
+}
+
+.join-tab:hover {
+    color: #007bff;
+}
+</style>
+
+<script>
+const token = '{{ token }}';
+
+function switchJoinTab(type) {
+    // Hide all forms
+    document.getElementById('studentJoinForm').style.display = 'none';
+    document.getElementById('guestJoinForm').style.display = 'none';
+    
+    // Remove active class from all tabs
+    document.querySelectorAll('.join-tab').forEach(tab => tab.classList.remove('active'));
+    
+    // Show selected form and activate tab
+    if (type === 'student') {
+        document.getElementById('studentJoinForm').style.display = 'block';
+    } else if (type === 'guest') {
+        document.getElementById('guestJoinForm').style.display = 'block';
+    }
+    
+    event.target.classList.add('active');
+}
+
+// Student join
+document.getElementById('studentJoinForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = {
+        student_name: document.getElementById('studentName').value,
+        student_id: document.getElementById('studentId').value,
+        team_id: document.getElementById('teamSelect').value,
+        is_guest: false
+    };
+    
+    try {
+        const response = await fetch(`/join/${token}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            window.location.href = data.redirect;
+        } else {
+            showToast(data.error || 'Failed to join class', 'error');
+        }
+    } catch (error) {
+        showToast('An error occurred', 'error');
+    }
+});
+
+// Guest join
+document.getElementById('guestJoinForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    // Get or find the Guests team
+    const formData = {
+        student_name: document.getElementById('guestName').value,
+        student_id: 'GUEST',
+        team_id: null,  // Will be determined by backend
+        is_guest: true
+    };
+    
+    try {
+        const response = await fetch(`/join/${token}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            window.location.href = data.redirect;
+        } else {
+            showToast(data.error || 'Failed to join as guest', 'error');
+        }
+    } catch (error) {
+        showToast('An error occurred', 'error');
+    }
+});
+</script>
+{% endblock %}
